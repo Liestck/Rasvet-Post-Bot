@@ -1,3 +1,4 @@
+# main | Rasvet Post Bot
 import asyncio
 from aiogram import Bot, Dispatcher
 
@@ -6,8 +7,9 @@ from app.handlers.start import router as start_router
 from app.database.models import Base
 from app.database.db import engine
 from app.database.middleware import DbSessionMiddleware
-from app.utils.logger import bot_start, bot_stop
+from app.utils.logger import Logger
 from app.handlers.channel import router as channel_router
+from app.handlers.post import router as post_router
 
 
 async def main():
@@ -19,17 +21,18 @@ async def main():
 
     dp.include_router(start_router)
     dp.include_router(channel_router)
+    dp.include_router(post_router)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    bot_start()  # 🚀 старт
+    Logger.Bot.bot_start()
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
     finally:
-        bot_stop()  # 🛑 остановка
+        Logger.Bot.bot_stop()
 
 
 if __name__ == "__main__":

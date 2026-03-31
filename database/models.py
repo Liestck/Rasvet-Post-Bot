@@ -1,5 +1,6 @@
 import enum
 from datetime import datetime
+
 import sqlalchemy as sa
 from sqlalchemy import BigInteger, String, DateTime, Boolean, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -10,14 +11,16 @@ class Base(DeclarativeBase):
 
 
 class PermEnum(str, enum.Enum):
-    """Права пользователей"""
+    """ Права пользователей """
+
     DEFAULT = "default"
     PREMIUM = "premium"
     OWNER = "owner"
 
 
 class User(Base):
-    """Данные пользователей"""
+    """ Данные пользователей """
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -33,6 +36,7 @@ class User(Base):
 
 class Channel(Base):
     """Данные каналов"""
+
     __tablename__ = "channels"
 
     id: Mapped[int] = mapped_column(primary_key=True)

@@ -1,22 +1,26 @@
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.database.models import User, Channel, PermEnum
-from app.config import Config
 from colorama import Fore, Style
 
-# =============================================
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database.models import User, Channel, PermEnum
+from app.utils.logger import Logger
+from app.config import Config
+
+
 class Users:
     def __init__(self, session: AsyncSession):
         self.session = session
 
     async def get_or_create(self, tg_user) -> User:
         """Получить пользователя по tg_id или создать нового"""
+
         stmt = select(User).where(User.tg_id == tg_user.id)
         result = await self.session.execute(stmt)
         user = result.scalar_one_or_none()
 
         if user:
-            print(f"{Fore.YELLOW}[USER EXISTS]{Style.RESET_ALL} tg_id={tg_user.id}, username={tg_user.username}")
+            Logger.User.exists(tg_user)
             return user
 
         # Если пользователь владелец бота
@@ -27,10 +31,13 @@ class Users:
             username=tg_user.username,
             perm=perm
         )
+
         self.session.add(user)
         await self.session.commit()
         await self.session.refresh(user)
-        print(f"{Fore.GREEN}[USER CREATED]{Style.RESET_ALL} tg_id={tg_user.id}, perm={perm}")
+        
+        Logger.User.new(tg_user.id, tg_user.username)
+
         return user
 
     async def get_by_tg_id(self, tg_id: int) -> User | None:

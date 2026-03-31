@@ -1,4 +1,4 @@
-from colorama import Fore, Style
+# channel | Модуль для работы с каналами | Rasvet Post Bot
 import asyncio
 
 from aiogram import Router, Bot
@@ -7,8 +7,9 @@ from aiogram.fsm.context import FSMContext
 
 from app.states.channel import ChannelStates
 from app.database.queries import Channels, Users
-from app.keyboards import StartKeyboard, AuxiliaryKeyboards
-
+from app.keyboards import AuxiliaryKeyboards, ChannelKeyboards
+from app.messages import BotMsg
+from app.utils.logger import Logger
 
 router = Router()
 
@@ -16,29 +17,37 @@ router = Router()
 # =============================================
 @router.callback_query(lambda c: c.data == "add_channel")
 async def add_channel_callback(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    """Начало добавления нового канала"""
+
     try:
         await bot.delete_message(chat_id=callback.message.chat.id, message_id=callback.message.message_id)
     except Exception:
         pass
 
-    msg = await callback.message.answer(
-        "<b>Введите @username канала:</b>\n\n<blockquote>Например @mychannel</blockquote>",
+    msg1 = await callback.message.answer(
+        BotMsg.Channel.add_1,
         parse_mode="HTML",
-        reply_markup=AuxiliaryKeyboards.cancel_keyboard()
+        reply_markup=ChannelKeyboards.invite_bot()
     )
-    await state.update_data(messages_to_delete=[msg.message_id])
+
+    msg2 = await callback.message.answer(
+        BotMsg.Channel.add_2,
+        parse_mode="HTML",
+        reply_markup=AuxiliaryKeyboards.cancel()
+    )
+
+    await state.update_data(messages_to_delete=[msg1.message_id, msg2.message_id])
     await state.set_state(ChannelStates.waiting_for_username)
     await callback.answer()
 
 @router.message(ChannelStates.waiting_for_username)
 async def process_add_channel(message: Message, state: FSMContext, session, bot: Bot):
+
     username = message.text.strip()
     
     data = await state.get_data()
     msg_ids = data.get("messages_to_delete", [])
 
-    # Удаляем предыдущие сообщения
+    # Очистка
     for msg_id in msg_ids:
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
@@ -58,8 +67,10 @@ async def process_add_channel(message: Message, state: FSMContext, session, bot:
         except Exception:
             pass
 
-        msgd = await message.answer("<b>❌ Отмена добавления канала</b>", parse_mode="HTML")
+        msgd = await message.answer(BotMsg.Channel.cancel_add, parse_mode="HTML")
+
         await asyncio.sleep(1.5)
+
         try:
             await bot.delete_message(chat_id=msgd.chat.id, message_id=msgd.message_id)
         except Exception:
@@ -67,63 +78,69 @@ async def process_add_channel(message: Message, state: FSMContext, session, bot:
 
         await state.clear()
 
-        # Показать список каналов
-        user_channels = await channels.get_user_channels(user.tg_id)
-        can_add_channel = await channels.can_add(user.tg_id, user.perm)
-        await message.answer(
-            "<b>Ваши каналы 👇</b>",
+        # Список каналов
+        return await message.answer(
+            BotMsg.Channel._list,
             parse_mode="HTML",
-            reply_markup=StartKeyboard.get_channels_keyboard(user_channels, can_add_channel)
+            reply_markup=ChannelKeyboards._list(
+                await channels.get_user_channels(user.tg_id),
+                await channels.can_add(user.tg_id, user.perm)
+            )
         )
-        return
 
     # Проверка @username
     if not username.startswith("@"):
         msg = await message.answer(
-            "<b>⚠️ Ошибка!</b>\nВведите @username канала",
+            BotMsg.Channel.incorrect_channel_name,
             parse_mode="HTML"
         )
         msg_ids.append(msg.message_id)
-        await state.update_data(messages_to_delete=msg_ids)
-        return
+        return await state.update_data(messages_to_delete=msg_ids)
+        
 
-    # Получаем чат и права
+    # Получаем канал и права
     try:
-        chat = await bot.get_chat(username)
+        channel = await bot.get_chat(username)
         try:
-            member = await bot.get_chat_member(chat.id, bot.id)
+            member = await bot.get_chat_member(channel.id, bot.id)
             can_post = member.can_post_messages if member else False
         except Exception:
             can_post = False
+
+        if not can_post:
+            msg = await message.answer(
+                BotMsg.Channel.no_rights,
+                parse_mode="HTML"
+            )
+            msg_ids.append(msg.message_id)
+            return await state.update_data(messages_to_delete=msg_ids)
+
     except Exception:
         msg = await message.answer(
-            "<b>⚠️ Такого канала не существует</b>\n\n<blockquote>Введите @username канала</blockquote>",
+            BotMsg.Channel.not_found_channel_name,
             parse_mode="HTML"
         )
         msg_ids.append(msg.message_id)
-        await state.update_data(messages_to_delete=msg_ids)
-        return
+        return await state.update_data(messages_to_delete=msg_ids)
+        
 
     # Проверка лимита
     can_add = await channels.can_add(user.tg_id, user.perm)
     if not can_add:
-        await message.answer('<b>🚫 Вы достигли лимита каналов</b>', parse_mode="HTML")
-        await state.clear()
-        return
+        await message.answer(BotMsg.Channel.limitation, parse_mode="HTML")
+        return await state.clear()
 
     # Проверка на дубликат
-    user_channels = await channels.get_user_channels(user.tg_id)
-    if any(c.channel_id == chat.id for c in user_channels):
+    if any(c.channel_id == channel.id for c in await channels.get_user_channels(user.tg_id)):
         msg = await message.answer(
-            "<b>⚠️ Этот канал уже подключён в вашем списке!</b>\n\n<blockquote>Введите @username канала</blockquote>",
+            BotMsg.channel.duplicate,
             parse_mode="HTML"
         )
         msg_ids.append(msg.message_id)
-        await state.update_data(messages_to_delete=msg_ids)
-        return
+        return await state.update_data(messages_to_delete=msg_ids)
 
     # Добавление канала
-    await channels.add(chat.id, chat.title, user.tg_id, can_post)
+    await channels.add(channel.id, channel.title, user.tg_id, can_post)
 
     # Очистка сообщений
     for msg_id in msg_ids:
@@ -134,94 +151,80 @@ async def process_add_channel(message: Message, state: FSMContext, session, bot:
 
     # Сообщение об успешном добавлении
     msg = await message.answer(
-        f"<b>✅ Канал успешно добавлен!</b>\n\n<blockquote>{chat.title}</blockquote>",
+        BotMsg.Channel.successfully_add(channel),
         parse_mode="HTML"
     )
     msg_ids.append(msg.message_id)
 
     # Обновление списка каналов
-    user_channels = await channels.get_user_channels(user.tg_id)
-    can_add_channel = await channels.can_add(user.tg_id, user.perm)
-    keyboard_msg = await message.answer(
-        "<b>Ваши каналы 👇</b>",
+    msg_list = await message.answer(
+        BotMsg.Channel._list,
         parse_mode="HTML",
-        reply_markup=StartKeyboard.get_channels_keyboard(user_channels, can_add_channel)
+        reply_markup=ChannelKeyboards._list(
+            await channels.get_user_channels(user.tg_id),
+            await channels.can_add(user.tg_id, user.perm)
+        )
     )
-    msg_ids.append(keyboard_msg.message_id)
+    msg_ids.append(msg_list.message_id)
 
     await state.clear()
 
 # Список каналов
 # =============================================
 @router.callback_query(lambda c: c.data.startswith("channels_main"))
-async def channels_main(callback: CallbackQuery, session, bot: Bot):
+async def channels_main(callback: CallbackQuery, session):
 
-    # Получение списка каналов пользователя
     channels = Channels(session)
-    user_channels = await channels.get_user_channels(callback.from_user.id)
-
-    # Обновляем список каналов
     users = Users(session)
     user = await users.get_by_tg_id(callback.from_user.id)
-    user_channels = await channels.get_user_channels(user.tg_id)
-    can_add_channel = await channels.can_add(user.tg_id, user.perm)
-    keyboard = StartKeyboard.get_channels_keyboard(user_channels, can_add_channel)
-    await callback.message.edit_text("<b>Ваши каналы 👇</b>", parse_mode="HTML", reply_markup=keyboard)
+
+    await callback.message.edit_text(
+        BotMsg.Channel._list,
+        parse_mode="HTML",
+        reply_markup=ChannelKeyboards._list(
+            await channels.get_user_channels(user.tg_id),
+            await channels.can_add(user.tg_id, user.perm)
+        )
+    )
 
 # Данные канала
 # =============================================
 @router.callback_query(lambda c: c.data.startswith("view_"))
-async def view_channel_details(callback: CallbackQuery, session, bot: Bot):
+async def view_channel_details(callback: CallbackQuery, session):
+
     channel_id = int(callback.data.split('_')[1])
 
     users = Users(session)
     channels = Channels(session)
 
-    # Получаем пользователя
     user = await users.get_by_tg_id(callback.from_user.id)
-    if not user:
-        return await callback.answer("❌ Пользователь не найден", show_alert=True)
-
-    # Получаем каналы пользователя
-    user_channels = await channels.get_user_channels(user.tg_id)
-
-    # Ищем нужный канал
-    channel = next(
-        (c for c in user_channels if int(c.channel_id) == channel_id),
-        None
-    )
+    channel = next((ch for ch in await channels.get_user_channels(user.tg_id) if int(ch.channel_id) == channel_id), None)
 
     if not channel:
-        return await callback.answer('⚠️ Ошибка: Канал не найден', show_alert=True)
-
-    # Формируем текст
-    text = (
-        f"<b><blockquote>{channel.title}</blockquote></b>\n\n"
-        f"<b>ID канала: </b><code>{channel.channel_id}</code>\n"
-        f"<b>Права на публикацию: </b>"
-        f"{'✅' if channel.can_post else '❌'}\n"
-    )
+        return await callback.answer(BotMsg.Channel.not_found, show_alert=True)
 
     await callback.message.edit_text(
-        text,
+        BotMsg.Channel.menu(channel),
         parse_mode="HTML",
-        reply_markup=StartKeyboard.channel_actions(channel.channel_id)
+        reply_markup=ChannelKeyboards.menu(channel.channel_id)
     )
 
 # Заменить канал
 # =============================================
 @router.callback_query(lambda c: c.data.startswith("edit_"))
 async def replace_channel(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    """Начало редактирования канала"""
+
     try:
         await bot.delete_message(chat_id=callback.message.chat.id, message_id=callback.message.message_id)
     except Exception:
         pass
+
     msg = await callback.message.answer(
-            "<b>Введите @username нового канала:</b>\n\n<blockquote>Например @mychannel</blockquote>",
-            parse_mode="HTML",
-            reply_markup=AuxiliaryKeyboards.cancel_keyboard()
-        )
+        BotMsg.Channel.edit_new,
+        parse_mode="HTML",
+        reply_markup=AuxiliaryKeyboards.cancel()
+    )
+    
     await state.update_data(messages_to_delete=[msg.message_id])
     await state.set_state(ChannelStates.waiting_for_username_replace)
     await callback.answer()
@@ -266,9 +269,9 @@ async def process_replace_channel(message: Message, state: FSMContext, session, 
         await state.clear()
 
         await message.answer(
-            "<b>Ваши каналы 👇</b>",
+            BotMsg.Channel._list,
             parse_mode="HTML",
-            reply_markup=StartKeyboard.get_channels_keyboard(
+            reply_markup=ChannelKeyboards._list(
                 await channels.get_user_channels(user.tg_id),
                 await channels.can_add(user.tg_id, user.perm)
             )
@@ -285,11 +288,11 @@ async def process_replace_channel(message: Message, state: FSMContext, session, 
         await state.update_data(messages_to_delete=msg_ids)
         return
 
-    # Получаем чат и права
+    # Получаем канал и права
     try:
-        chat = await bot.get_chat(username)
+        channel = await bot.get_chat(username)
         try:
-            member = await bot.get_chat_member(chat.id, bot.id)
+            member = await bot.get_chat_member(channel.id, bot.id)
             can_post = member.can_post_messages if member else False
         except Exception:
             can_post = False
@@ -311,7 +314,7 @@ async def process_replace_channel(message: Message, state: FSMContext, session, 
     current_channel = user_channels[0]  # первый активный канал
 
     # Проверка идентичного канала
-    if current_channel.channel_id == chat.id:
+    if current_channel.channel_id == channel.id:
         msg = await message.answer(
             "<b>⚠️ Вы не можете заменить канал на идентичный</b>\n<blockquote>Введите @username нового канала</blockquote>",
             parse_mode="HTML"
@@ -321,7 +324,7 @@ async def process_replace_channel(message: Message, state: FSMContext, session, 
         return
 
     # Проверка: канал уже есть в списке
-    if any(c.channel_id == chat.id for c in user_channels):
+    if any(c.channel_id == channel.id for c in user_channels):
         msg = await message.answer(
             "<b>⚠️ Этот канал уже подключён в вашем списке!</b>\n\n<blockquote>Введите @username нового канала</blockquote>",
             parse_mode="HTML"
@@ -331,8 +334,8 @@ async def process_replace_channel(message: Message, state: FSMContext, session, 
         return
 
     # Замена канала
-    current_channel.channel_id = chat.id
-    current_channel.title = chat.title
+    current_channel.channel_id = channel.id
+    current_channel.title = channel.title
     current_channel.can_post = can_post
     current_channel.enabled = True
     await session.commit()
@@ -352,109 +355,82 @@ async def process_replace_channel(message: Message, state: FSMContext, session, 
     )
     msg_ids.append(msg.message_id)
 
-    # Обновляем список каналов
-    user_channels = await channels.get_user_channels(user.tg_id)
-    can_add_channel = await channels.can_add(user.tg_id, user.perm)
     keyboard_msg = await message.answer(
-        "<b>Ваши каналы 👇</b>",
+        BotMsg.Channel._list,
         parse_mode="HTML",
-        reply_markup=StartKeyboard.get_channels_keyboard(user_channels, can_add_channel)
+        reply_markup=ChannelKeyboards._list(
+            await channels.get_user_channels(user.tg_id),
+            await channels.can_add(user.tg_id, user.perm)
+        )
     )
     msg_ids.append(keyboard_msg.message_id)
-    
 
-    # --- Очистка FSM ---
     await state.clear()
 
 # Удалить канал
 # =============================================
 @router.callback_query(lambda c: c.data.startswith("delete_"))
-async def delete_channel_callback(callback: CallbackQuery, session, bot: Bot):
+async def delete_channel_callback(callback: CallbackQuery, session):
+
     try:
         channel_id = int(callback.data.split("_")[1])
     except ValueError:
-        await callback.answer("Неверные данные", show_alert=True)
-        return
+        return await callback.answer(BotMsg.Channel.incorrect_data, show_alert=True)
 
     channels = Channels(session)
-    user_channels = await channels.get_user_channels(callback.from_user.id)
-    channel = next((ch for ch in user_channels if ch.channel_id == channel_id), None)
+    channel = next((ch for ch in await channels.get_user_channels(callback.from_user.id) if int(ch.channel_id) == channel_id), None)
 
     if not channel:
-        await callback.answer("Канал не найден", show_alert=True)
-        return
+        return await callback.answer(BotMsg.Channel.not_found, show_alert=True)
 
     # Клавиатура подтверждения
-    keyboard = StartKeyboard.confirm_delete_keyboard(channel)
     await callback.message.edit_text(
-        f"<b>Вы уверены, что хотите удалить канал:</b> {channel.title}?",
+        BotMsg.Channel.confirm_delete(channel),
         parse_mode="HTML",
-        reply_markup=keyboard
+        reply_markup=ChannelKeyboards.confirm_delete(channel)
     )
+
     await callback.answer()
 
 # Подтверждение
+# =============================================
 @router.callback_query(lambda c: c.data.startswith("delete-confirm_"))
-async def delete_confirm_callback(callback: CallbackQuery, session, bot: Bot):
+async def delete_confirm_callback(callback: CallbackQuery, session):
+
     user_answer = bool(int(callback.data.split('_')[1][:1]))
     channel_id = int(callback.data.split('_')[1][1:])
 
     channels = Channels(session)
     users = Users(session)
-
-    # Получаем пользователя
+    
     user = await users.get_by_tg_id(callback.from_user.id)
-
-    # Получаем канал пользователя
-    user_channels = await channels.get_user_channels(user.tg_id)
-    channel = next(
-        (c for c in user_channels if int(c.channel_id) == channel_id),
-        None
-    )
+    channel = next((ch for ch in await channels.get_user_channels(user.tg_id) if int(ch.channel_id) == channel_id), None)
 
     if not channel:
-        return await callback.answer("⚠️ Канал не найден", show_alert=True)
+        return await callback.answer(BotMsg.Channel.not_found, show_alert=True)
 
-    # ============================
-    # Пользователь подтвердил удаление
+    # Пользователь ПОДТВЕРДИЛ удаление
     if user_answer:
         channel.enabled = False
         await session.commit()
 
-        print(
-            f"{Fore.RED}[CHANNEL DELETED]{Style.RESET_ALL} "
-            f"id={channel.channel_id}, user={callback.from_user.id}"
-        )
+        Logger.Channel.delete(channel, callback)
 
-        await callback.answer("🗑 Канал удалён")
-
-        # Обновляем список каналов
-        user_channels = await channels.get_user_channels(user.tg_id)
-        can_add_channel = await channels.can_add(user.tg_id, user.perm)
-
-        keyboard = StartKeyboard.get_channels_keyboard(
-            user_channels,
-            can_add_channel
-        )
+        await callback.answer(BotMsg.Channel.delete)
 
         await callback.message.edit_text(
-            "<b>Ваши каналы 👇</b>",
+            BotMsg.Channel._list,
             parse_mode="HTML",
-            reply_markup=keyboard
+            reply_markup=ChannelKeyboards._list(
+                await channels.get_user_channels(user.tg_id),
+                await channels.can_add(user.tg_id, user.perm)
+            )
         )
 
-    # ============================
     # Пользователь ОТМЕНИЛ удаление
     else:
-        text = (
-            f"<b><blockquote>{channel.title}</blockquote></b>\n\n"
-            f"<b>ID канала:</b> <code>{channel.channel_id}</code>\n"
-            f"<b>Права на публикацию:</b> "
-            f"{'✅' if channel.can_post else '❌'}\n"
-        )
-
         await callback.message.edit_text(
-            text,
+            BotMsg.Channel.menu(channel),
             parse_mode="HTML",
-            reply_markup=StartKeyboard.channel_actions(channel.channel_id)
+            reply_markup=ChannelKeyboards.menu(channel.channel_id)
         )

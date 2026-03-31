@@ -1,14 +1,17 @@
+# config | Формирование конфига из .env | Rasvet Post Bot
 import os
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
 
 class Config:
+
     # Получение данных
     BOT_TOKEN: str = os.getenv("BOT_TOKEN")
     DATABASE_URL: str = os.getenv("DATABASE_URL")
-    OWNER_TGID: int = int(os.getenv("OWNER_TGID", 0))  # по умолчанию 0, если не задан
+    OWNER_TGID: int = int(os.getenv("OWNER_TGID", 0))
 
     # Валидация
     if not BOT_TOKEN:
