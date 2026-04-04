@@ -2,10 +2,15 @@
 import asyncio
 
 from aiogram import Router, Bot, F
-from aiogram.types import CallbackQuery, Message, InputMediaPhoto, InputMediaVideo, InputMediaAnimation, InputMediaAudio, InputMediaDocument, ReplyKeyboardRemove
+from aiogram.types import (
+    CallbackQuery, Message,
+    InputMediaPhoto, InputMediaVideo,
+    InputMediaAnimation, InputMediaAudio,
+    InputMediaDocument, ReplyKeyboardRemove
+)
 from aiogram.fsm.context import FSMContext
 
-from app.database.queries import Channels
+from app.database.queries import Channels, Format
 from app.states.channel import PostStates
 from app.keyboards import AuxiliaryKeyboards, ChannelKeyboards, PostKeyboards
 from app.messages import BotMsg
@@ -38,21 +43,6 @@ def extract_post_data(message: Message) -> dict:
     }
 
 
-# Сдвиг форматирования
-# =============================================
-def shift_entities(entities: list, shift: int):
-
-    if not entities:
-        return []
-
-    return [
-        {
-            **e,
-            "offset": e["offset"] + shift
-        }
-        for e in entities
-    ]
-
 # Ожидания поста
 # =============================================
 @router.callback_query(lambda c: c.data.startswith("post_main_"))
@@ -61,12 +51,8 @@ async def post_main(callback: CallbackQuery, state: FSMContext, session):
     channel_id = int(callback.data.split("_")[-1])
     channels = Channels(session)
 
-    channel = next(
-        (ch for ch in await channels.get_user_channels(callback.from_user.id) if int(ch.channel_id) == channel_id),
-        None
-    )
+    channel = next((ch for ch in await channels.get_user_channels(callback.from_user.id)if int(ch.channel_id) == channel_id), None)
 
-    # Перепроверка прав публикации
     if not channel.can_post:
         return await callback.message.answer(
             BotMsg.Post.no_rights,
@@ -74,7 +60,6 @@ async def post_main(callback: CallbackQuery, state: FSMContext, session):
             reply_markup=ChannelKeyboards.invite_bot()
         )
 
-    # Скрываем меню
     try:
         await callback.message.delete()
     except:
@@ -83,7 +68,7 @@ async def post_main(callback: CallbackQuery, state: FSMContext, session):
     msg = await callback.message.answer(
         BotMsg.Post.send,
         parse_mode="HTML",
-        reply_markup=AuxiliaryKeyboards.cancel() 
+        reply_markup=AuxiliaryKeyboards.cancel()
     )
 
     await callback.answer()
@@ -92,6 +77,7 @@ async def post_main(callback: CallbackQuery, state: FSMContext, session):
 
     await state.update_data(
         channel_data=channel,
+        session=session,
         messages_to_delete=[msg.message_id],
         posting=False,
         media_group=[]
@@ -105,8 +91,7 @@ async def cancel_via_reply(message: Message, state: FSMContext):
 
     data = await state.get_data()
     channel = data.get("channel_data")
-    
-    # Возвращаем меню
+
     await message.answer(
         BotMsg.Channel.menu(channel),
         parse_mode="HTML",
@@ -119,7 +104,6 @@ async def cancel_via_reply(message: Message, state: FSMContext):
         reply_markup=ReplyKeyboardRemove()
     )
 
-    # Очистка
     for msg_id in data.get("messages_to_delete", []):
         try:
             await message.bot.delete_message(
@@ -137,6 +121,7 @@ async def cancel_via_reply(message: Message, state: FSMContext):
     await state.clear()
 
     await asyncio.sleep(3)
+
     try:
         await msg.delete()
     except:
@@ -148,7 +133,6 @@ async def cancel_via_reply(message: Message, state: FSMContext):
 @router.message(PostStates.waiting_for_post)
 async def handle_post(message: Message, state: FSMContext, bot: Bot):
 
-    # Пользователь передумал отправлять пост
     if message.text == "✖️ Отменить":
         return
 
@@ -185,46 +169,19 @@ async def handle_post(message: Message, state: FSMContext, bot: Bot):
             "items": media_group
         }
 
-    # =============================================
-
     await state.update_data(
         post_data=post,
         messages_to_delete=msgs
     )
 
-    prefix = "\n\n"
-    text = "Аянами Рей на каждый день"
-
-    caption_add = prefix + text
-
-    blockquote_offset = len(prefix)
-    blockquote_length = len(text)
-
-    caption_add_entities = [
-        {
-            "type": "blockquote",
-            "offset": blockquote_offset,
-            "length": blockquote_length
-        },
-        {
-            "type": "text_link",
-            "offset": blockquote_offset,
-            "length": blockquote_length,
-            "url": "https://t.me/ayanami_rei_everday"
-        }
-    ]
-
-    # Превью
     preview_msg = await send_post(
         bot=bot,
+        state=state,
         target_id=message.chat.id,
         post=post,
-        caption_add=caption_add,
-        caption_add_entities=caption_add_entities,
-        reply_markup=None,
+        reply_markup=None
     )
 
-    # Прокладка
     control_msg = await message.answer(
         BotMsg.Post.pad,
         reply_markup=PostKeyboards.confirm()
@@ -264,44 +221,18 @@ async def confirm_post(callback: CallbackQuery, state: FSMContext, bot: Bot):
     except:
         pass
 
-    channel_id = channel.channel_id
     post = data["post_data"]
-
-    # caption_add (entity-based)
-    prefix = "\n\n"
-    text = "Аянами Рей на каждый день"
-
-    caption_add = prefix + text
-
-    blockquote_offset = len(prefix)
-    blockquote_length = len(text)
-
-    caption_add_entities = [
-        {
-            "type": "blockquote",
-            "offset": blockquote_offset,
-            "length": blockquote_length
-        },
-
-        {
-            "type": "text_link",
-            "offset": blockquote_offset,
-            "length": blockquote_length,
-            "url": "https://t.me/ayanami_rei_everday"
-        }
-    ]
 
     sent_msg = await send_post(
         bot=bot,
-        target_id=channel_id,
-        post=post,
-        caption_add=caption_add,
-        caption_add_entities=caption_add_entities
+        state=state,
+        target_id=channel.channel_id,
+        post=post
     )
 
     await cleanup(callback, state)
 
-    chat_id_str = str(channel_id).replace("-100", "")
+    chat_id_str = str(channel.channel_id).replace("-100", "")
 
     if isinstance(sent_msg, list):
         message_id = sent_msg[0].message_id
@@ -327,164 +258,137 @@ async def confirm_post(callback: CallbackQuery, state: FSMContext, bot: Bot):
 # =============================================
 async def send_post(
     bot: Bot,
+    state: FSMContext,
     target_id: int,
     post: dict,
-    caption_add: str = "",
-    caption_add_entities: list | None = None,
     reply_markup=None,
     disable_preview: bool = True,
 ):
 
-    caption_add_entities = caption_add_entities or []
+    data = await state.get_data()
+    session = data.get("session")
 
-    # Медиа-группа
+    up_text, down_text = "", ""
+
+    if session:
+        fmt = Format(session)
+        up_text, down_text = await fmt.get_texts(
+            owner_tg_id=data["channel_data"].owner_id,
+            channel_id=data["channel_data"].channel_id
+        )
+
+    up_text = up_text or ""
+    down_text = down_text or ""
+
+    # MEDIA GROUP
     if post["type"] == "media_group":
 
         media = []
 
         for i, item in enumerate(post["items"]):
 
+            caption_parts = []
+
+            if i == 0 and up_text:
+                caption_parts.append(up_text)
+
             base_caption = item.get("caption") or ""
-            caption = base_caption
+            caption_parts.append(base_caption)
 
-            entities = item.get("caption_entities") or []
+            if i == 0 and down_text:
+                caption_parts.append(down_text)
 
-            if i == 0:
-                caption += caption_add
+            caption = "\n\n".join([c for c in caption_parts if c])
 
-                entities = entities + shift_entities(
-                    caption_add_entities,
-                    shift=len(base_caption)
-                )
+            media_kwargs = {
+                "media": item["file_id"],
+                "caption": caption if caption else None,
+            }
 
             if item["type"] == "photo":
-                media.append(InputMediaPhoto(
-                    media=item["file_id"],
-                    caption=caption,
-                    caption_entities=entities
-                ))
-
+                media.append(InputMediaPhoto(**media_kwargs))
             elif item["type"] == "video":
-                media.append(InputMediaVideo(
-                    media=item["file_id"],
-                    caption=caption,
-                    caption_entities=entities
-                ))
-
+                media.append(InputMediaVideo(**media_kwargs))
             elif item["type"] == "animation":
-                media.append(InputMediaAnimation(
-                    media=item["file_id"],
-                    caption=caption,
-                    caption_entities=entities
-                ))
-
+                media.append(InputMediaAnimation(**media_kwargs))
             elif item["type"] == "audio":
-                media.append(InputMediaAudio(
-                    media=item["file_id"],
-                    caption=caption,
-                    caption_entities=entities
-                ))
-
+                media.append(InputMediaAudio(**media_kwargs))
             elif item["type"] == "document":
-                media.append(InputMediaDocument(
-                    media=item["file_id"],
-                    caption=caption,
-                    caption_entities=entities
-                ))
+                media.append(InputMediaDocument(**media_kwargs))
 
         return await bot.send_media_group(
             chat_id=target_id,
             media=media
         )
-
-    # Текст
+    
+    # TEXT
     if post["type"] == "text":
 
-        base_text = post.get("text") or ""
-        add_text = caption_add or ""
+        parts = []
 
-        text = base_text + add_text
+        if up_text:
+            parts.append(up_text)
 
-        base_entities = post.get("entities") or []
+        if post.get("text"):
+            parts.append(post["text"])
 
-        add_entities = shift_entities(
-            caption_add_entities,
-            shift=len(base_text)
-        )
+        if down_text:
+            parts.append(down_text)
+
+        text = "\n\n".join(parts)
 
         return await bot.send_message(
             chat_id=target_id,
             text=text,
-            entities=base_entities + add_entities,
+            parse_mode="HTML",
             reply_markup=reply_markup,
             disable_web_page_preview=disable_preview
         )
 
-    # Медиа
+    # =============================================
+    # MEDIA (single)
+    # =============================================
     base_caption = post.get("caption") or ""
-    add_caption = caption_add or ""
 
-    caption = base_caption + add_caption
+    parts = []
 
-    base_entities = post.get("caption_entities") or []
+    if up_text:
+        parts.append(up_text)
 
-    add_entities = shift_entities(
-        caption_add_entities,
-        shift=len(base_caption)
-    )
+    if base_caption:
+        parts.append(base_caption)
 
-    entities = base_entities + add_entities
+    if down_text:
+        parts.append(down_text)
+
+    caption = "\n\n".join(parts)
+
+    kwargs = {
+        "chat_id": target_id,
+        "caption": caption if caption else None,
+        "reply_markup": reply_markup,
+        "parse_mode": "HTML"
+    }
 
     if post["type"] == "photo":
-        return await bot.send_photo(
-            chat_id=target_id,
-            photo=post["file_id"],
-            caption=caption,
-            caption_entities=entities,
-            reply_markup=reply_markup
-        )
+        return await bot.send_photo(photo=post["file_id"], **kwargs)
 
     if post["type"] == "video":
-        return await bot.send_video(
-            chat_id=target_id,
-            video=post["file_id"],
-            caption=caption,
-            caption_entities=entities,
-            reply_markup=reply_markup
-        )
+        return await bot.send_video(video=post["file_id"], **kwargs)
 
     if post["type"] == "animation":
-        return await bot.send_animation(
-            chat_id=target_id,
-            animation=post["file_id"],
-            caption=caption,
-            caption_entities=entities,
-            reply_markup=reply_markup
-        )
+        return await bot.send_animation(animation=post["file_id"], **kwargs)
 
     if post["type"] == "audio":
-        return await bot.send_audio(
-            chat_id=target_id,
-            audio=post["file_id"],
-            caption=caption,
-            caption_entities=entities,
-            reply_markup=reply_markup
-        )
+        return await bot.send_audio(audio=post["file_id"], **kwargs)
 
     if post["type"] == "document":
-        return await bot.send_document(
-            chat_id=target_id,
-            document=post["file_id"],
-            caption=caption,
-            caption_entities=entities,
-            reply_markup=reply_markup
-        )
+        return await bot.send_document(document=post["file_id"], **kwargs)
 
     if post["type"] == "voice":
         return await bot.send_voice(
             chat_id=target_id,
-            voice=post["file_id"],
-            reply_markup=reply_markup
+            voice=post["file_id"]
         )
 
     if post["type"] == "video_note":

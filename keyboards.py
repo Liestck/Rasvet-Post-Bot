@@ -13,7 +13,7 @@ class ChannelKeyboards:
         inline_keyboard = [
             [InlineKeyboardButton(text="📢 Публикация", callback_data=f"post_main_{channel_id}") ],
             [InlineKeyboardButton(text="📬 Предложка", callback_data=f"suggest_main") ],
-            [InlineKeyboardButton(text="⚙️ Формат постов", callback_data=f"post_format_main") ],
+            [InlineKeyboardButton(text="⚙️ Формат постов", callback_data=f"post_format_main_{channel_id}") ],
             [
                 InlineKeyboardButton(text="✏️", callback_data=f"edit_{channel_id}"),
                 InlineKeyboardButton(text="🗑", callback_data=f"delete_{channel_id}") 
@@ -78,6 +78,30 @@ class PostKeyboards:
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📢 Запостить", callback_data="post_confirm")],
             [InlineKeyboardButton(text="✖️ Отмена", callback_data="post_cancel")]
+        ])
+
+
+class FormatKeyboards:
+    """ Клавиатуры модуля << Форматирование постов >> """
+
+    @staticmethod
+    def menu(channel_id) -> InlineKeyboardMarkup:
+        """ Управление текстами """
+
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="1️⃣ Верхний текст", callback_data=f"post_format_text_up_{channel_id}")],
+            [InlineKeyboardButton(text="2️⃣ Нижний текст", callback_data=f"post_format_text_down_{channel_id}")],
+            [InlineKeyboardButton(text="⬅️ Меню канала", callback_data=f"return_{channel_id}")]
+        ])
+    
+    @staticmethod
+    def format_text(channel_id, text_pos):
+        """ Управление строкой """
+
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Редактировать", callback_data=f"post_format_edit_{channel_id}_{text_pos}")],
+            [InlineKeyboardButton(text="🗑 Очистить", callback_data=f"post_format_delete_{channel_id}_{text_pos}")],
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"post_format_return_{channel_id}")]
         ])
 
 

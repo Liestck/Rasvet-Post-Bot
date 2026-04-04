@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 
 import sqlalchemy as sa
-from sqlalchemy import BigInteger, String, DateTime, Boolean, func
+from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -45,3 +45,7 @@ class Channel(Base):
     owner_id: Mapped[int] = mapped_column(BigInteger, index=True)
     can_post: Mapped[bool] = mapped_column(Boolean, default=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_banned: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    up_text: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    down_text: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)

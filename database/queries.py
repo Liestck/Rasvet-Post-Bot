@@ -54,7 +54,7 @@ class Users:
         """Проверка, является ли пользователь премиум"""
         return user.perm in {PermEnum.PREMIUM, PermEnum.OWNER}
 
-# =============================================
+
 class Channels:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -67,6 +67,22 @@ class Channels:
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
+    
+    async def get_user_channel(
+        self,
+        owner_tg_id: int,
+        channel_id: int
+    ) -> Channel | None:
+        """Получить конкретный канал пользователя"""
+        
+        stmt = select(Channel).where(
+            Channel.owner_id == owner_tg_id,
+            Channel.channel_id == channel_id,
+            Channel.enabled.is_(True)
+        )
+        
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def can_add(self, owner_tg_id: int, user_perm: PermEnum) -> bool:
         """
@@ -188,3 +204,65 @@ class Channels:
         await self.session.commit()
         await self.session.refresh(new_channel)
         return True, False
+    
+
+class Format:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get_texts(
+        self,
+        owner_tg_id: int,
+        channel_id: int
+    ) -> tuple[str | None, str | None]:
+        """
+        Получить оба текста (up, down)
+        """
+
+        stmt = select(Channel).where(
+            Channel.channel_id == channel_id,
+            Channel.owner_id == owner_tg_id,
+            Channel.enabled.is_(True)
+        )
+
+        result = await self.session.execute(stmt)
+        channel = result.scalar_one_or_none()
+
+        if not channel:
+            return None, None
+
+        return channel.up_text, channel.down_text
+
+    async def update_text(
+        self,
+        owner_tg_id: int,
+        channel_id: int,
+        text_pos: str,
+        text: str | None
+    ) -> bool:
+        """
+        Обновление текста блока (up/down)
+        Возвращает True если обновлено, False если канал не найден
+        """
+
+        stmt = select(Channel).where(
+            Channel.channel_id == channel_id,
+            Channel.owner_id == owner_tg_id,
+            Channel.enabled.is_(True)
+        )
+
+        result = await self.session.execute(stmt)
+        channel = result.scalar_one_or_none()
+
+        if not channel:
+            return False
+
+        if text_pos == "up":
+            channel.up_text = text
+        elif text_pos == "down":
+            channel.down_text = text
+        else:
+            raise ValueError(f"Invalid text_pos: {text_pos}")
+
+        await self.session.commit()
+        return True
