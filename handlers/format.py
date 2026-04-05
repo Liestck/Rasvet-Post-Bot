@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 
 from app.config import Config
 from app.database.queries import Channels, Format
-from app.states.format import FormatStates
+from app.states import FormatStates
 from app.messages import BotMsg
 from app.keyboards import FormatKeyboards, ChannelKeyboards
 

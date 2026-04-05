@@ -1,3 +1,4 @@
+# states | Rasvet Post Bot
 from aiogram.fsm.state import StatesGroup, State
 
 
@@ -9,3 +10,8 @@ class ChannelStates(StatesGroup):
 class PostStates(StatesGroup):
     waiting_for_post = State()
     confirm_post = State()
+
+
+class FormatStates(StatesGroup):
+    menu = State()
+    editing = State()

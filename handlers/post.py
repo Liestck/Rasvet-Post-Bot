@@ -12,7 +12,7 @@ from aiogram.types import (
 
 from app.database.queries import Channels, Format
 from app.utils.functions import Converting
-from app.states.channel import PostStates
+from app.states import PostStates
 from app.keyboards import AuxiliaryKeyboards, ChannelKeyboards, PostKeyboards
 from app.messages import BotMsg
 

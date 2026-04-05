@@ -5,7 +5,7 @@ from aiogram import Router, Bot
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
-from app.states.channel import ChannelStates
+from app.states import ChannelStates
 from app.database.queries import Channels, Users
 from app.keyboards import AuxiliaryKeyboards, ChannelKeyboards
 from app.messages import BotMsg
