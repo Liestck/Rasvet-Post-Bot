@@ -2,15 +2,16 @@
 import asyncio
 
 from aiogram import Router, Bot, F
+from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     CallbackQuery, Message,
     InputMediaPhoto, InputMediaVideo,
     InputMediaAnimation, InputMediaAudio,
     InputMediaDocument, ReplyKeyboardRemove
 )
-from aiogram.fsm.context import FSMContext
 
 from app.database.queries import Channels, Format
+from app.utils.functions import Converting
 from app.states.channel import PostStates
 from app.keyboards import AuxiliaryKeyboards, ChannelKeyboards, PostKeyboards
 from app.messages import BotMsg
@@ -26,10 +27,13 @@ def extract_post_data(message: Message) -> dict:
     return {
         "type": message.content_type,
         "media_group_id": message.media_group_id,
+
         "text": message.text,
         "caption": message.caption,
-        "entities": message.entities,
+
+        "text_entities": message.entities,
         "caption_entities": message.caption_entities,
+
         "file_id": (
             message.photo[-1].file_id if message.photo else
             message.video.file_id if message.video else
@@ -47,11 +51,9 @@ def extract_post_data(message: Message) -> dict:
 # =============================================
 @router.callback_query(lambda c: c.data.startswith("post_main_"))
 async def post_main(callback: CallbackQuery, state: FSMContext, session):
-
+    
     channel_id = int(callback.data.split("_")[-1])
-    channels = Channels(session)
-
-    channel = next((ch for ch in await channels.get_user_channels(callback.from_user.id)if int(ch.channel_id) == channel_id), None)
+    channel = await Channels(session).get_user_channel(callback.from_user.id, channel_id)
 
     if not channel.can_post:
         return await callback.message.answer(
@@ -95,7 +97,8 @@ async def cancel_via_reply(message: Message, state: FSMContext):
     await message.answer(
         BotMsg.Channel.menu(channel),
         parse_mode="HTML",
-        reply_markup=ChannelKeyboards.menu(channel.channel_id)
+        reply_markup=ChannelKeyboards.menu(channel.channel_id),
+        disable_web_page_preview=True
     )
 
     msg = await message.answer(
@@ -179,7 +182,7 @@ async def handle_post(message: Message, state: FSMContext, bot: Bot):
         state=state,
         target_id=message.chat.id,
         post=post,
-        reply_markup=None
+        reply_markup=ReplyKeyboardRemove()
     )
 
     control_msg = await message.answer(
@@ -250,7 +253,8 @@ async def confirm_post(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.message.answer(
         BotMsg.Channel.menu(channel),
         parse_mode="HTML",
-        reply_markup=ChannelKeyboards.menu(channel.channel_id)
+        reply_markup=ChannelKeyboards.menu(channel.channel_id),
+        disable_web_page_preview=True
     )
 
 
@@ -292,7 +296,10 @@ async def send_post(
             if i == 0 and up_text:
                 caption_parts.append(up_text)
 
-            base_caption = item.get("caption") or ""
+            base_caption = Converting.entities_to_html(
+                item.get("caption") or "",
+                item.get("caption_entities")
+            )
             caption_parts.append(base_caption)
 
             if i == 0 and down_text:
@@ -303,6 +310,7 @@ async def send_post(
             media_kwargs = {
                 "media": item["file_id"],
                 "caption": caption if caption else None,
+                "parse_mode": "HTML"
             }
 
             if item["type"] == "photo":
@@ -324,22 +332,27 @@ async def send_post(
     # TEXT
     if post["type"] == "text":
 
+        text = Converting.entities_to_html(
+            post.get("text") or "",
+            post.get("text_entities")
+        )
+
         parts = []
 
         if up_text:
             parts.append(up_text)
 
-        if post.get("text"):
-            parts.append(post["text"])
+        if text:
+            parts.append(text)
 
         if down_text:
             parts.append(down_text)
 
-        text = "\n\n".join(parts)
+        final_text = "\n\n".join(parts)
 
         return await bot.send_message(
             chat_id=target_id,
-            text=text,
+            text=final_text,
             parse_mode="HTML",
             reply_markup=reply_markup,
             disable_web_page_preview=disable_preview
@@ -414,7 +427,8 @@ async def cancel_post(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
         BotMsg.Channel.menu(channel),
         parse_mode="HTML",
-        reply_markup=ChannelKeyboards.menu(channel.channel_id)
+        reply_markup=ChannelKeyboards.menu(channel.channel_id),
+        disable_web_page_preview=True
     )
 
     msg = await callback.message.answer(BotMsg.Post.cancel, parse_mode="HTML")

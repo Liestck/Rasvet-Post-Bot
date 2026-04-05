@@ -5,11 +5,11 @@ from aiogram import Router, Bot
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
+from app.config import Config
 from app.database.queries import Channels, Format
 from app.states.format import FormatStates
 from app.messages import BotMsg
 from app.keyboards import FormatKeyboards, ChannelKeyboards
-from app.utils.functions import Converting
 
 
 router = Router()
@@ -25,13 +25,13 @@ def build_preview_text(channel, mode: str = "full"):
     up_block = (
         f"1️⃣ {up_text}\n"
         if up_text
-        else '<a href="t.me/RasvetPost_bot">1️⃣ Верхний текст <b>пуст</b></a>\n'
+        else f'<a href="https://t.me/{Config.BOT_URL}">1️⃣ Верхний текст отключен</a>'
     )
 
     down_block = (
         f"2️⃣ {down_text}"
         if down_text
-        else '<a href="t.me/RasvetPost_bot">2️⃣ Нижний текст <b>пуст</b></a>'
+        else f'<a href="https://t.me/{Config.BOT_URL}">1️⃣ Нижний текст отключен</a>'
     )
 
     if mode == "up":
@@ -43,7 +43,7 @@ def build_preview_text(channel, mode: str = "full"):
     if mode == "full":
         return (
             up_block +
-            f"Это пост в канале <b>{channel.title}!</b> 😀\n" +
+            f"\n\nЭто пост в канале <b>{channel.title}!</b> 😀\n\n" +
             down_block
         )
 
@@ -113,7 +113,8 @@ async def return_handler(callback: CallbackQuery, state: FSMContext, bot: Bot, s
                 message_id=main_msg_id,
                 text=BotMsg.Channel.menu(channel),
                 parse_mode="HTML",
-                reply_markup=ChannelKeyboards.menu(channel.channel_id)
+                reply_markup=ChannelKeyboards.menu(channel.channel_id),
+                disable_web_page_preview=True
             )
         except:
             pass

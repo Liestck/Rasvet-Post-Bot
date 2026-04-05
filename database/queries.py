@@ -106,7 +106,8 @@ class Channels:
         channel_id: int,
         title: str,
         owner_tg_id: int,
-        can_post: bool
+        can_post: bool,
+        channelname: str | None = None
     ) -> tuple[Channel, bool]:
         """
         Добавить канал.
@@ -127,6 +128,7 @@ class Channels:
                 channel.title = title
                 channel.owner_id = owner_tg_id
                 channel.can_post = can_post
+                channel.channelname = channelname
 
                 await self.session.commit()
 
@@ -149,7 +151,8 @@ class Channels:
             title=title,
             owner_id=owner_tg_id,
             can_post=can_post,
-            enabled=True
+            enabled=True,
+            channelname=channelname  # ✅ НОВАЯ СТРОКА
         )
         self.session.add(new_channel)
         await self.session.commit()
@@ -166,7 +169,8 @@ class Channels:
         owner_tg_id: int,
         channel_id: int,
         title: str,
-        can_post: bool
+        can_post: bool,
+        channelname: str | None = None
     ) -> tuple[bool, bool]:
         """
         Заменить канал пользователя.
@@ -198,7 +202,8 @@ class Channels:
             channel_id=channel_id,
             title=title,
             owner_id=user.id,
-            can_post=can_post
+            can_post=can_post,
+            channelname=channelname
         )
         self.session.add(new_channel)
         await self.session.commit()

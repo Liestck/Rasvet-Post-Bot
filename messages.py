@@ -1,4 +1,5 @@
 # messages | Помодульные неймспейсы текстового контента | Rasvet Post Bot
+from app.config import Config
 
 class BotMsg:
     """ Текстовый контент бота """
@@ -9,7 +10,7 @@ class BotMsg:
         @staticmethod
         def menu(channel) -> str:
             return (
-                f"<b><blockquote>{channel.title}</blockquote></b>\n\n"
+                f'<b><blockquote><a href="https://t.me/{channel.channelname}">{channel.title}</a></blockquote></b>\n\n'
                 f"<b>ID канала: </b><code>{channel.channel_id}</code>\n"
                 f"<b>Права на публикацию: </b>"
                 f"{'✅' if channel.can_post else '❌'}\n"
@@ -17,11 +18,11 @@ class BotMsg:
         
         @staticmethod
         def confirm_delete(channel) -> str:
-            return f'<b>Вы уверены, что хотите удалить канал:</b> <a href="https://t.me/c/{str(channel.id).replace("-100", "")}/">{channel.title}</a>?'
+            return f'<b>Вы уверены, что хотите удалить канал:</b> <a href="https://t.me/{channel.channelname}">{channel.title}</a>?'
         
         @staticmethod
         def successfully_add(channel) -> str:
-            return f'<b>✅ Канал успешно добавлен!</b>\n\n<blockquote><a href="https://t.me/c/{str(channel.id).replace("-100", "")}/">➕ {channel.title}</a></blockquote>'
+            return f'<b>✅ Канал успешно добавлен!</b>\n\n<blockquote><a href="https://t.me/{channel.username}/">➕ {channel.title}</a></blockquote>'
 
         _list = "<b>Ваши каналы 👇</b>"
 
@@ -40,6 +41,7 @@ class BotMsg:
         )
         limitation = "<b>🚫 Вы достигли лимита каналов</b>"
         duplicate = "<b>⚠️ Этот канал уже подключён в вашем списке!</b>\n\n<blockquote>Введите @channel_name канала</blockquote>"
+        cancel_replace = "<b>❌ Отмена замены канала</b>\n\n<i>Это сообщение скоро исчезнет</i>"
 
         edit_new = "<b>Введите @channel_name нового канала:</b>\n\n<blockquote>Например @mychannel</blockquote>"
 
@@ -49,12 +51,12 @@ class BotMsg:
 
         @staticmethod
         def successfully_send(post_link, channel) -> str:
-            return f'✅ <b><a href="{post_link}">Пост</a> опубликован в <a href="https://t.me/c/{str(channel.id).replace("-100", "")}/">{channel.title}</a>!</b>'
+            return f'✅ <b><a href="{post_link}">Пост</a> опубликован в <a href="https://t.me/{channel.channelname}">{channel.title}</a>!</b>'
         
         no_rights = '<b>❌ Нет прав на публикацию!</b>\n\n<blockquote>❕<b>Нажмите кнопку ниже</b>, выберите нужный канал, дайте право <b>"Управление сообщениями"</b></blockquote>'
         send = "<b>Отправьте пост 👇</b>"
         cancel = "<b>⚠️ Отправка поста отменена!</b>\n\n<i>Это сообщение скоро исчезнет</i>"
-        pad = "Публикуем?"
+        pad = "Опубликовать?"
 
 
     class Format:
@@ -76,7 +78,7 @@ class BotMsg:
         """ Глобальные текста """
 
         welcome = (
-            '<b><a href="t.me/RasvetPost_bot">👋 Привет!</a></b>\n\n'
+            f'<b><a href="{Config.BOT_URL}">👋 Привет!</a></b>\n\n'
             "<b>Я помогу тебе вести Telegram-канал:</b>\n"
             "<blockquote>• Создать предложку\n"
             "• Публиковать посты\n• Отложенная публикация</blockquote>\n\n"

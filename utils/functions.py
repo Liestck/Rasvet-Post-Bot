@@ -116,7 +116,7 @@ class Converting:
         for e, _ in reversed(stack):
             result.append(close_tag(e))
 
-        return "".join(result).replace("\n", "\\n")
+        return "".join(result)
 
     @staticmethod
     def markdown_html(message: Message, view: bool) -> str:

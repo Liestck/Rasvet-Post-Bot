@@ -41,6 +41,7 @@ class Channel(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     channel_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    channelname: Mapped[str | None] = mapped_column(String(255), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
     owner_id: Mapped[int] = mapped_column(BigInteger, index=True)
     can_post: Mapped[bool] = mapped_column(Boolean, default=False)

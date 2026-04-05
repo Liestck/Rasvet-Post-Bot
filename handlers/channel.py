@@ -140,7 +140,13 @@ async def process_add_channel(message: Message, state: FSMContext, session, bot:
         return await state.update_data(messages_to_delete=msg_ids)
 
     # Добавление канала
-    await channels.add(channel.id, channel.title, user.tg_id, can_post)
+    await channels.add(
+        channel.id,
+        channel.title,
+        user.tg_id,
+        can_post,
+        channel.username
+    )
 
     # Очистка сообщений
     for msg_id in msg_ids:
@@ -152,7 +158,8 @@ async def process_add_channel(message: Message, state: FSMContext, session, bot:
     # Сообщение об успешном добавлении
     msg = await message.answer(
         BotMsg.Channel.successfully_add(channel),
-        parse_mode="HTML"
+        parse_mode="HTML",
+        disable_web_page_preview=True
     )
     msg_ids.append(msg.message_id)
 
@@ -193,12 +200,7 @@ async def channels_main(callback: CallbackQuery, session):
 async def view_channel_details(callback: CallbackQuery, session):
 
     channel_id = int(callback.data.split('_')[1])
-
-    users = Users(session)
-    channels = Channels(session)
-
-    user = await users.get_by_tg_id(callback.from_user.id)
-    channel = next((ch for ch in await channels.get_user_channels(user.tg_id) if int(ch.channel_id) == channel_id), None)
+    channel = await Channels(session).get_user_channel(callback.from_user.id, channel_id)
 
     if not channel:
         return await callback.answer(BotMsg.Channel.not_found, show_alert=True)
@@ -206,7 +208,8 @@ async def view_channel_details(callback: CallbackQuery, session):
     await callback.message.edit_text(
         BotMsg.Channel.menu(channel),
         parse_mode="HTML",
-        reply_markup=ChannelKeyboards.menu(channel.channel_id)
+        reply_markup=ChannelKeyboards.menu(channel.channel_id),
+        disable_web_page_preview=True
     )
 
 # Заменить канал
@@ -259,7 +262,7 @@ async def process_replace_channel(message: Message, state: FSMContext, session, 
         except Exception:
             pass
 
-        msgd = await message.answer("<b>❌ Отмена замены канала</b>", parse_mode="HTML", reply_markup=None )
+        msgd = await message.answer(BotMsg.Channel.cancel_replace, parse_mode="HTML", reply_markup=None )
         await asyncio.sleep(1.5)
         try:
             await bot.delete_message(chat_id=msgd.chat.id, message_id=msgd.message_id)
@@ -377,8 +380,7 @@ async def delete_channel_callback(callback: CallbackQuery, session):
     except ValueError:
         return await callback.answer(BotMsg.Channel.incorrect_data, show_alert=True)
 
-    channels = Channels(session)
-    channel = next((ch for ch in await channels.get_user_channels(callback.from_user.id) if int(ch.channel_id) == channel_id), None)
+    channel = await Channels(session).get_user_channel(callback.from_user.id, channel_id)
 
     if not channel:
         return await callback.answer(BotMsg.Channel.not_found, show_alert=True)
@@ -387,7 +389,8 @@ async def delete_channel_callback(callback: CallbackQuery, session):
     await callback.message.edit_text(
         BotMsg.Channel.confirm_delete(channel),
         parse_mode="HTML",
-        reply_markup=ChannelKeyboards.confirm_delete(channel)
+        reply_markup=ChannelKeyboards.confirm_delete(channel),
+        disable_web_page_preview=True
     )
 
     await callback.answer()
@@ -404,7 +407,7 @@ async def delete_confirm_callback(callback: CallbackQuery, session):
     users = Users(session)
     
     user = await users.get_by_tg_id(callback.from_user.id)
-    channel = next((ch for ch in await channels.get_user_channels(user.tg_id) if int(ch.channel_id) == channel_id), None)
+    channel = await Channels(session).get_user_channel(callback.from_user.id, channel_id)
 
     if not channel:
         return await callback.answer(BotMsg.Channel.not_found, show_alert=True)
@@ -424,7 +427,8 @@ async def delete_confirm_callback(callback: CallbackQuery, session):
             reply_markup=ChannelKeyboards._list(
                 await channels.get_user_channels(user.tg_id),
                 await channels.can_add(user.tg_id, user.perm)
-            )
+            ),
+            disable_web_page_preview=True
         )
 
     # Пользователь ОТМЕНИЛ удаление
@@ -432,5 +436,6 @@ async def delete_confirm_callback(callback: CallbackQuery, session):
         await callback.message.edit_text(
             BotMsg.Channel.menu(channel),
             parse_mode="HTML",
-            reply_markup=ChannelKeyboards.menu(channel.channel_id)
+            reply_markup=ChannelKeyboards.menu(channel.channel_id),
+            disable_web_page_preview=True
         )
