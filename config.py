@@ -2,17 +2,16 @@
 import os
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 
 class Config:
 
-    # Получение данных
     BOT_TOKEN: str = os.getenv("BOT_TOKEN")
     DATABASE_URL: str = os.getenv("DATABASE_URL")
     OWNER_TGID: int = int(os.getenv("OWNER_TGID", 0))
     BOT_URL: str = os.getenv("BOT_URL")
+    ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY")
 
     # Валидация
     if not BOT_TOKEN:
@@ -26,3 +25,6 @@ class Config:
 
     if not BOT_URL:
         raise ValueError("❌ BOT_URL не найден в .env")
+
+    if not ENCRYPTION_KEY:
+        raise ValueError("❌ ENCRYPTION_KEY не найден в .env")

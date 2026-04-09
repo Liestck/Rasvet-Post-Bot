@@ -62,11 +62,58 @@ class BotMsg:
     class Format:
         ''' Текста связанные с модулем << Форматирование постов >>'''
 
-        manual_full = "<blockquote><b>⚙️ Настройки визуального оформления постов</b></blockquote>\n<i>Заготовки, закрепляемые к каждому посту опубликованному через бота!</i>\n\nДля редактирования используйте кнопки в меню!\n\n<b>👇 Ваш актуальный формат постов:</b>"
+        manual_full = "<b>⚙️ Настройки визуального оформления постов</b>\n<blockquote><i>Заготовки, закрепляемые к каждому посту опубликованному через бота!</i></blockquote>\n\nДля редактирования используйте кнопки в меню!\n\n<b>👇 Ваш актуальный формат постов:</b>"
 
-        manual_short = "<blockquote><b>⚙️ Настройки визуального оформления постов</b></blockquote>\n<i>Заготовки, закрепляемые к каждому посту опубликованному через бота!</i>\n\n"
+        manual_short = "<b>⚙️ Настройки визуального оформления постов</b>\n<blockquote><i>Заготовки, закрепляемые к каждому посту опубликованному через бота!</i></blockquote>\n\n"
 
         successfully_edit = "<b>✅ Текст обновлён</b>\n\n<i>Это сообщение скоро исчезнет</i>"
+
+
+    class Suggest:
+        """ Текста связанные с модулем << Предложка >> """
+
+        @staticmethod
+        def menu(channel, has_token: bool) -> str:
+            if has_token and channel.suggest_username:
+                status = f'<a href="https://t.me/{channel.suggest_username}">✅ Бот подключен</a>'
+            else:
+                status = "⚠️ Бот не подключен"
+
+            return (
+                "<b>📪 Управление предложкой</b>\n\n"
+                f"<blockquote>{status}</blockquote>"
+            )
+        
+        @staticmethod
+        def success_connected(bot_username: str, bot_first_name: str) -> str:
+            return (
+                f'<a href="{Config.BOT_URL}">Rasvet Post</a> 🤝 '
+                f'<a href="t.me/{bot_username}">{bot_first_name}</a>\n\n'
+                "✅ Бот предложки подключен успешно!"
+            )
+
+        bind_prompt = (
+            "<b>Отправь токен бота</b>\n\n"
+            "<i>🔐 Он будет храниться в зашифрованном виде</i>"
+        )
+
+        bind_prompt_with_error = bind_prompt
+
+        invalid_format = "<b>⚠️ Ошибка!</b>\n<blockquote>Введите верный токен</blockquote>"
+
+        invalid_token = "<b>⚠️ Ошибка!</b>\n<blockquote>Введите существующий токен</blockquote>"
+
+        send_fail = (
+            "<b>⚠️ Ошибка!</b>\n<blockquote>"
+            "Не удалось отправить сообщение\n"
+            "Пропишите /start в боте и попробуйте снова"
+            "</blockquote>"
+        )
+
+        step_format = "Проверяю формат..."
+        step_api = "Проверяю Telegram API..."
+        step_send = "Отправляю тестовое сообщение..."
+
 
     class User:
         """ Текста связанные с пользователем """

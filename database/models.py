@@ -50,3 +50,6 @@ class Channel(Base):
 
     up_text: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     down_text: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+
+    suggest_token: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
+    suggest_username: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)

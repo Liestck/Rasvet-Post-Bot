@@ -8,17 +8,17 @@ init(autoreset=True)
 
 
 class Logger:
-    """ Вывод информации в консоль + JSON файл """
+    """Вывод информации в консоль + JSON файл"""
 
     LOG_FILE = "bot.logs.jsonl"
 
     @staticmethod
     def _now() -> str:
-        return datetime.now().strftime("%H:%M:%S")
+        # дата + время
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     @staticmethod
     def _write(data: dict) -> None:
-        # запись одной JSON строки (jsonl формат)
         with open(Logger.LOG_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps(data, ensure_ascii=False) + "\n")
 
@@ -29,11 +29,10 @@ class Logger:
 
 
     class Channel:
-        """ Логирование действий с каналами """
+        """Логирование действий с каналами"""
 
         @staticmethod
         def delete(channel, callback) -> None:
-
             data = {
                 "time": Logger._now(),
                 "event": "channel_delete",
@@ -42,6 +41,7 @@ class Logger:
             }
 
             msg = (
+                f"{Logger._now()} "
                 f"{Fore.RED}[CHANNEL DELETED]{Style.RESET_ALL} "
                 f"id={channel.channel_id}, user={callback.from_user.id}"
             )
@@ -50,11 +50,10 @@ class Logger:
 
 
     class User:
-        """ Логирование действий с пользователями """
+        """Логирование действий с пользователями"""
 
         @staticmethod
         def new(tg_id: int, username: str | None) -> None:
-
             data = {
                 "time": Logger._now(),
                 "event": "user_new",
@@ -67,17 +66,14 @@ class Logger:
             msg = (
                 f"{Logger._now()} "
                 f"{Fore.CYAN}NEW USER{Style.RESET_ALL} "
-                f"{Fore.WHITE}→ "
-                f"id={Fore.YELLOW}{tg_id}{Fore.WHITE}, "
+                f"→ id={Fore.YELLOW}{tg_id}{Style.RESET_ALL}, "
                 f"user={Fore.MAGENTA}{username_part}"
             )
 
             Logger._log(data, msg)
 
-
         @staticmethod
         def exists(tg_user) -> None:
-
             data = {
                 "time": Logger._now(),
                 "event": "user_exists",
@@ -86,6 +82,7 @@ class Logger:
             }
 
             msg = (
+                f"{Logger._now()} "
                 f"{Fore.YELLOW}[USER EXISTS]{Style.RESET_ALL} "
                 f"tg_id={tg_user.id}, username={tg_user.username}"
             )
@@ -94,11 +91,10 @@ class Logger:
 
 
     class Bot:
-        """ Логгирование действий бота """
+        """Логгирование действий бота"""
 
         @staticmethod
         def bot_start() -> None:
-
             data = {
                 "time": Logger._now(),
                 "event": "bot_start"
@@ -107,15 +103,13 @@ class Logger:
             msg = (
                 f"{Logger._now()} "
                 f"{Fore.GREEN}BOT{Style.BRIGHT} STARTED{Style.RESET_ALL} "
-                f"{Fore.WHITE}→ polling started"
+                f"→ polling started"
             )
 
             Logger._log(data, msg)
 
-
         @staticmethod
         def bot_stop() -> None:
-
             data = {
                 "time": Logger._now(),
                 "event": "bot_stop"
@@ -124,7 +118,44 @@ class Logger:
             msg = (
                 f"{Logger._now()} "
                 f"{Fore.RED}BOT{Style.BRIGHT} STOPPED{Style.RESET_ALL} "
-                f"{Fore.WHITE}→ polling stopped"
+                f"→ polling stopped"
+            )
+
+            Logger._log(data, msg)
+
+
+    class Suggest:
+        """Логгирование suggest-ботов"""
+
+        @staticmethod
+        def bot_start(channel_id: int) -> None:
+            data = {
+                "time": Logger._now(),
+                "event": "suggest_bot_start",
+                "channel_id": channel_id
+            }
+
+            msg = (
+                f"{Logger._now()} "
+                f"{Fore.GREEN}SUGGEST BOT{Style.BRIGHT} STARTED{Style.RESET_ALL} "
+                f"→ channel {channel_id}"
+            )
+
+            Logger._log(data, msg)
+
+        @staticmethod
+        def bot_error(channel_id: int, error: Exception) -> None:
+            data = {
+                "time": Logger._now(),
+                "event": "suggest_bot_error",
+                "channel_id": channel_id,
+                "error": str(error)
+            }
+
+            msg = (
+                f"{Logger._now()} "
+                f"{Fore.RED}SUGGEST BOT{Style.BRIGHT} ERROR{Style.RESET_ALL} "
+                f"→ channel {channel_id} | {error}"
             )
 
             Logger._log(data, msg)

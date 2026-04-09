@@ -6,9 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models import User, Channel, PermEnum
 from app.utils.logger import Logger
 from app.config import Config
+from app.utils.crypto import crypto
 
 
 class Users:
+
     def __init__(self, session: AsyncSession):
         self.session = session
 
@@ -56,6 +58,7 @@ class Users:
 
 
 class Channels:
+
     def __init__(self, session: AsyncSession):
         self.session = session
 
@@ -209,9 +212,10 @@ class Channels:
         await self.session.commit()
         await self.session.refresh(new_channel)
         return True, False
-    
+
 
 class Format:
+
     def __init__(self, session: AsyncSession):
         self.session = session
 
@@ -269,5 +273,48 @@ class Format:
         else:
             raise ValueError(f"Invalid text_pos: {text_pos}")
 
+        await self.session.commit()
+        return True
+    
+
+class Suggest:
+
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def set_suggest_token(self, channel_id: int, token: str):
+        """ Запись токена предложки """
+        channel = await self.session.scalar(
+            select(Channel).where(Channel.channel_id == channel_id)
+        )
+
+        if not channel:
+            return False
+
+        channel.suggest_token = crypto.encrypt(token)
+
+        await self.session.commit()
+        return True
+    
+    async def get_suggest_token(self, channel_id: int) -> str | None:
+        """ Получение токена предложки """
+        channel = await self.session.scalar(
+            select(Channel).where(Channel.channel_id == channel_id)
+        )
+
+        if not channel or not channel.suggest_token:
+            return None
+
+        return crypto.decrypt(channel.suggest_token)
+    
+    async def set_suggest_username(self, channel_id: int, username: str):
+        channel = await self.session.scalar(
+            select(Channel).where(Channel.channel_id == channel_id)
+        )
+
+        if not channel:
+            return False
+
+        channel.suggest_username = username
         await self.session.commit()
         return True

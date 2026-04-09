@@ -12,7 +12,7 @@ class ChannelKeyboards:
         """ Управление каналом """
         inline_keyboard = [
             [InlineKeyboardButton(text="📢 Публикация", callback_data=f"post_main_{channel_id}") ],
-            [InlineKeyboardButton(text="📬 Предложка", callback_data=f"suggest_main") ],
+            [InlineKeyboardButton(text="📬 Предложка", callback_data=f"suggest_main_{channel_id}") ],
             [InlineKeyboardButton(text="⚙️ Формат постов", callback_data=f"post_format_main_{channel_id}") ],
             [
                 InlineKeyboardButton(text="✏️", callback_data=f"edit_{channel_id}"),
@@ -102,6 +102,54 @@ class FormatKeyboards:
             [InlineKeyboardButton(text="✏️ Редактировать", callback_data=f"post_format_edit_{channel_id}_{text_pos}")],
             [InlineKeyboardButton(text="🗑 Очистить", callback_data=f"post_format_delete_{channel_id}_{text_pos}")],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"post_format_return_{channel_id}")]
+        ])
+    
+
+class SuggestKeyboards:
+    """ Клавиатуры модуля << Предложка >> """
+
+    @staticmethod
+    def menu(channel_id: int, has_token: bool, username: str | None = None) -> InlineKeyboardMarkup:
+        """ Главное меню предложки """
+
+        if has_token and username:
+            return InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📭 Открыть предложку",
+                        url=f"https://t.me/{username}"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="⛓️‍💥 Отвязать бота",
+                        callback_data=f"suggest_unbind_{channel_id}"
+                    )
+                ],
+                [InlineKeyboardButton(text="⬅️ Меню канала", callback_data=f"suggest_return_{channel_id}")]
+            ])
+
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔗 Подключить бота",
+                    callback_data=f"suggest_bind_{channel_id}"
+                )
+            ],
+            [InlineKeyboardButton(text="⬅️ Меню канала", callback_data=f"suggest_return_{channel_id}")]
+        ])
+    
+    @staticmethod
+    def cancel_connect(channel_id: int) -> InlineKeyboardMarkup:
+        """ Отмена подключения бота """
+
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✖️ Отмена",
+                    callback_data=f"suggest_cancel_connect_{channel_id}"
+                )
+            ]
         ])
 
 
